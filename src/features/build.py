@@ -15,7 +15,7 @@ from .definitions import (
     F_TEAM_FORM_AVG,
     F_TEAM_FORM_STD,
     F_RELATIVE_PACE,
-    F_POSITION_PREV,     # <--- dodaj w definitions.py jeśli brak
+    F_POSITION_PREV,  # <--- dodaj w definitions.py jeśli brak
 )
 
 
@@ -86,5 +86,4 @@ def build_features(
         out[F_POSITION_PREV] = out.groupby(["raceId", "driverId"])["position"].shift(1)
         out.drop(columns=["position"], inplace=True)
 
-        
     return out

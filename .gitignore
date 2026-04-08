@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+outputs/
+logs/
+helper_file_to_delete_later/
+env/

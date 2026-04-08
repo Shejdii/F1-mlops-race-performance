@@ -23,4 +23,4 @@ def load_data(data_dir: str | Path):
 
 
 def save_json(path: str | Path, **payload):
-    Path(path).write_text(json.dumps(payload, indent=2))   
+    Path(path).write_text(json.dumps(payload, indent=2))

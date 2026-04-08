@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from collections import defaultdict
 
-
 IGNORE_DIRS = {
     ".git",
     ".venv",
@@ -126,7 +125,9 @@ def suggest_structure(root: Path) -> None:
     if has_src and has_tests and has_data and has_artifacts:
         print("Repo ma już sensowny szkielet. Raczej refactor niż przebudowa od zera.")
     else:
-        print("Repo nie ma jeszcze pełnego szkieletu. Trzeba dołożyć minimum strukturalne.")
+        print(
+            "Repo nie ma jeszcze pełnego szkieletu. Trzeba dołożyć minimum strukturalne."
+        )
 
     if not has_makefile:
         print("- Dodać Makefile")

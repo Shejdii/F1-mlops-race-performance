@@ -9,7 +9,6 @@ import pandas as pd
 from .features.build import build_features
 from .time_parse import parse_time_to_seconds
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +19,9 @@ def _require(df: pd.DataFrame, cols: Iterable[str], ctx: str) -> None:
         raise KeyError(f"[{ctx}] brak wymaganych kolumn: {sorted(missing)}")
 
 
-def _ensure_seconds_column(df: pd.DataFrame, target_col: str = "seconds") -> pd.DataFrame:
+def _ensure_seconds_column(
+    df: pd.DataFrame, target_col: str = "seconds"
+) -> pd.DataFrame:
     """
     Zapewnia istnienie kolumny z czasem okrążenia w sekundach.
     Obsługuje:
@@ -74,6 +75,7 @@ def _add_max_lap(df: pd.DataFrame) -> pd.DataFrame:
 
 # ------------ main cleaning function ------------
 
+
 def clean_lap_data(
     laps: pd.DataFrame,
     races: pd.DataFrame,
@@ -124,13 +126,12 @@ def clean_lap_data(
     if not {"year", "round", "circuitId"} <= set(out.columns):
         out = _attach_race_meta(out, races)
 
-
     # 4) max_lap
     out = _add_max_lap(out)
 
-    # 5) features 
+    # 5) features
     if compute_features:
-   
+
         logger.info("Wyliczam feature'y…")
         out = build_features(
             out,
@@ -139,7 +140,6 @@ def clean_lap_data(
             team_window=rolling_window_team,
         )
 
-
     # 3) Usuń surowe kolumny czasu, jeśli jeszcze gdzieś się zachowały
     for col in ("time", "milliseconds", "lap_times_raw"):
         if col in out.columns:
@@ -147,14 +147,24 @@ def clean_lap_data(
 
     # porządek kolumn (opcjonalnie)
     preferred_order = [
-        "raceId", "year", "round", "circuitId",
-        "driverId", "constructorId",
-        "lap", "max_lap", "seconds",
+        "raceId",
+        "year",
+        "round",
+        "circuitId",
+        "driverId",
+        "constructorId",
+        "lap",
+        "max_lap",
+        "seconds",
         "track_evolution_index",
         "lap_time_diff",
-        "stint", "stint_change", "stint_lap_number",
-        "driver_form_avg", "driver_form_std",
-        "team_form_avg", "team_form_std",
+        "stint",
+        "stint_change",
+        "stint_lap_number",
+        "driver_form_avg",
+        "driver_form_std",
+        "team_form_avg",
+        "team_form_std",
         "relative_pace",
     ]
     cols_present = [c for c in preferred_order if c in out.columns]
@@ -163,6 +173,7 @@ def clean_lap_data(
 
     logger.info("clean_lap_data: gotowe, shape=%s", out.shape)
     return out
+
 
 # Opcjonalnie: funkcja „lite”, tylko cleaning bez feature’ów:
 def clean_lap_data_lite(laps: pd.DataFrame, races: pd.DataFrame) -> pd.DataFrame:
@@ -175,4 +186,3 @@ def clean_lap_data_lite(laps: pd.DataFrame, races: pd.DataFrame) -> pd.DataFrame
         require_constructor=False,
         compute_features=False,
     )
-

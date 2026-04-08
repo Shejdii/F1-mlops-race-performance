@@ -2,25 +2,30 @@
 # 1) ŚCIEŻKI I LOGI
 # =============================================================================
 
+from pathlib import Path
+
+# Root projektu = folder, w którym leży config.py
+PROJECT_ROOT = Path(__file__).resolve().parent
+
 # Folder z CSV
-DATA_DIR = "DataBase"
+DATA_DIR = PROJECT_ROOT / "data" / "raw"
 
 # Artefakty pipeline
-ARTIFACTS_DIR = "artifacts"
-ART_FEATURES  = "artifacts/features.parquet"
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+ART_FEATURES = PROJECT_ROOT / "artifacts" / "features" / "features.parquet"
 
-ART_MODELS    = "artifacts/models"
-ART_REPORTS   = "artifacts/reports"
+ART_MODELS = PROJECT_ROOT / "artifacts" / "models"
+ART_REPORTS = PROJECT_ROOT / "artifacts" / "reports"
 
-# Konkretne pliki wyjściowe (żeby train.py i predict.py nie zgadywały)
-TF_MODEL_FILE   = "artifacts/models/tf_model.keras"
-SKILL_REPORT    = "artifacts/reports/driver_skill.csv"
-PREDICTIONS_OUT = "artifacts/reports/predictions_preview.csv"  # opcjonalnie: do debug / wglądu
+# Konkretne pliki wyjściowe
+TF_MODEL_FILE = PROJECT_ROOT / "artifacts" / "models" / "tf_model.keras"
+SKILL_REPORT = PROJECT_ROOT / "artifacts" / "reports" / "driver_skill.csv"
+PREDICTIONS_OUT = PROJECT_ROOT / "artifacts" / "reports" / "predictions_preview.csv"
 
 # Outputy / logi
-OUTPUTS_DIR = "outputs"
-LOG_LEVEL = "INFO"                 # "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
-LOG_FILE = "outputs/run.log"
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+LOG_LEVEL = "INFO"  # "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
+LOG_FILE = PROJECT_ROOT / "outputs" / "run.log"
 LOG_TO_CONSOLE = True
 
 
@@ -35,29 +40,20 @@ ROLLING_WINDOW_TEAM = 5
 
 
 # =============================================================================
-# 3) MODELING – CANONICAL KOLUMNY (zgodne z artifacts/features.parquet)
+# 3) MODELING – CANONICAL KOLUMNY
 # =============================================================================
 
-# Targety dostępne w obecnym features.parquet
-MODEL_TARGET = "relative_pace"           # "seconds" | "relative_pace"
+MODEL_TARGET = "relative_pace"  # "seconds" | "relative_pace"
+MODEL_VARIANT = "skill"  # "forecast" | "skill"
 
-# Variant:
-# - forecast: wolno użyć lap_time_prev / lap_time_diff (predykcja)
-# - skill:    bez prev/diff (residual lepiej niesie skill)
-MODEL_VARIANT = "skill"            # "forecast" | "skill"
-
-# Ranking: minimalna liczba okrążeń na kierowcę
 MODEL_MIN_LAPS = 1000
 
-# Split / seed
 TEST_SIZE = 0.20
 RANDOM_SEED = 42
 
-# Prosta imputacja (startowa)
-MISSING_NUM_STRATEGY = "median"    # "median" | "mean"
+MISSING_NUM_STRATEGY = "median"  # "median" | "mean"
 FILL_NAN_NUMERIC = 0.0
 
-# Feature sets (canonical)
 MODEL_FEATURES_BASE = [
     "track_evolution_index",
     "driver_form_avg",
@@ -104,7 +100,7 @@ def get_model_features() -> list[str]:
 
 
 # =============================================================================
-# 3b) TF – parametry treningu (żeby nie były zakopane w train.py)
+# 3b) TF – parametry treningu
 # =============================================================================
 
 TF_LR = 1e-3
@@ -114,7 +110,7 @@ TF_EARLYSTOP_PATIENCE = 5
 
 
 # =============================================================================
-# 4) PARAMETRY POD SKILL / IDEAL DRIVER (na później)
+# 4) PARAMETRY POD SKILL / IDEAL DRIVER
 # =============================================================================
 
 RACE_TAX_TRIM = 0.10

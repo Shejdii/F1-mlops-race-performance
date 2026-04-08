@@ -45,13 +45,15 @@ def main() -> int:
     norm = tf.keras.layers.Normalization()
     norm.adapt(X_train)
 
-    model = tf.keras.Sequential([
-        tf.keras.Input(shape=(X_train.shape[1],)),
-        norm,
-        tf.keras.layers.Dense(64, activation="relu"),
-        tf.keras.layers.Dense(32, activation="relu"),
-        tf.keras.layers.Dense(1),
-    ])
+    model = tf.keras.Sequential(
+        [
+            tf.keras.Input(shape=(X_train.shape[1],)),
+            norm,
+            tf.keras.layers.Dense(64, activation="relu"),
+            tf.keras.layers.Dense(32, activation="relu"),
+            tf.keras.layers.Dense(1),
+        ]
+    )
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(config.TF_LR),
@@ -60,15 +62,18 @@ def main() -> int:
     )
 
     model.fit(
-        X_train, y_train,
+        X_train,
+        y_train,
         validation_data=(X_val, y_val),
         epochs=config.TF_EPOCHS,
         batch_size=config.TF_BATCH_SIZE,
-        callbacks=[tf.keras.callbacks.EarlyStopping(
-            monitor="val_mae",
-            patience=config.TF_EARLYSTOP_PATIENCE,
-            restore_best_weights=True,
-        )],
+        callbacks=[
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_mae",
+                patience=config.TF_EARLYSTOP_PATIENCE,
+                restore_best_weights=True,
+            )
+        ],
         verbose=2,
     )
 
@@ -82,7 +87,6 @@ def main() -> int:
     print("Saved:", config.TF_MODEL_FILE)
 
     return 0
-
 
 
 if __name__ == "__main__":

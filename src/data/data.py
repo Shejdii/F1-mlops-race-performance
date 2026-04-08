@@ -3,15 +3,22 @@ import os
 import logging
 import pandas as pd
 from src.config import (
-    LAP_TIMES, RACES, DRIVERS, DRIVER_STANDINGS, QUALIFYING,
-    LOG_FILE, LOG_LEVEL
+    LAP_TIMES,
+    RACES,
+    DRIVERS,
+    DRIVER_STANDINGS,
+    QUALIFYING,
+    LOG_FILE,
+    LOG_LEVEL,
 )
+
 
 # Helper: sprawdzenie istnienia plików
 def _check_exists(path: str) -> None:
     if not os.path.exists(path):
         logging.error(f"Brakuje wymaganego pliku: {path}")
         raise FileNotFoundError(f"Brakuje wymaganego pliku: {path}")
+
 
 # Główny loader
 def load_data():

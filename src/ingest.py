@@ -19,9 +19,13 @@ def lap_times_raw(laps: pd.DataFrame, races: pd.DataFrame) -> pd.DataFrame:
             # 'time' jest stringiem "m:ss.xxx" lub "ss.xxx"
             out["seconds"] = out["time"].apply(parse_time_to_seconds)
         elif "milliseconds" in out.columns:
-            out["seconds"] = pd.to_numeric(out["milliseconds"], errors="coerce") / 1000.0
+            out["seconds"] = (
+                pd.to_numeric(out["milliseconds"], errors="coerce") / 1000.0
+            )
         else:
-            raise KeyError("Brak kolumny czasu: oczekiwano 'seconds' lub 'time' lub 'milliseconds' w lap_times")
+            raise KeyError(
+                "Brak kolumny czasu: oczekiwano 'seconds' lub 'time' lub 'milliseconds' w lap_times"
+            )
 
     # --- 2) Oczyszczanie i standardyzacja
     out = out.dropna(subset=["raceId", "driverId", "lap", "seconds"]).copy()

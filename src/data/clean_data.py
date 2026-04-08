@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
+
 # ---- helpers ----
 def _time_to_seconds(x):
     if x is None or pd.isna(x) or x == r"\N":
@@ -10,12 +11,13 @@ def _time_to_seconds(x):
     s = str(x).strip()
     parts = s.split(":")
     try:
-        if len(parts) == 2:   # "m:ss.xxx"
+        if len(parts) == 2:  # "m:ss.xxx"
             m, sec = parts
             return float(m) * 60 + float(sec)
-        return float(s)        # "ss.xxx"
+        return float(s)  # "ss.xxx"
     except Exception:
         return np.nan
+
 
 def clean_lap_times(lap_times: pd.DataFrame) -> pd.DataFrame:
     """
@@ -41,7 +43,9 @@ def clean_lap_times(lap_times: pd.DataFrame) -> pd.DataFrame:
         diff = (sec_from_ms - sec_from_time).abs()
         bad = diff[(~diff.isna()) & (diff > 0.002)].shape[0]
         if bad > 0:
-            logging.warning(f"[clean_lap_times] {bad} różnic >2ms między 'time' a 'milliseconds'")
+            logging.warning(
+                f"[clean_lap_times] {bad} różnic >2ms między 'time' a 'milliseconds'"
+            )
     elif sec_from_ms is not None:
         df["seconds"] = sec_from_ms
     elif sec_from_time is not None:
@@ -57,6 +61,7 @@ def clean_lap_times(lap_times: pd.DataFrame) -> pd.DataFrame:
         f"[clean_lap_times] rows_before={before}, rows_after={df.shape[0]}, seconds_na={df['seconds'].isna().sum()}"
     )
     return df
+
 
 def clean_qualifying(qualifying: pd.DataFrame) -> pd.DataFrame:
     """
@@ -86,6 +91,7 @@ def clean_qualifying(qualifying: pd.DataFrame) -> pd.DataFrame:
     )
     return q
 
+
 def clean_races(races: pd.DataFrame) -> pd.DataFrame:
     """Lekki porządek: podstawowe kolumny, year jako int, filtr >=1950."""
     req = ["raceId", "year", "round", "name"]
@@ -98,6 +104,7 @@ def clean_races(races: pd.DataFrame) -> pd.DataFrame:
     df = df[df["year"] >= 1950]
     logging.info(f"[clean_races] shape={df.shape}")
     return df
+
 
 if __name__ == "__main__":
     import sys
@@ -117,4 +124,3 @@ if __name__ == "__main__":
     print("\n=== Po czyszczeniu ===")
     print(df_clean.head())
     df_clean.info()
-

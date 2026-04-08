@@ -25,9 +25,9 @@ def main() -> int:
     feats = config.get_model_features()
 
     # --- 3 elementy: szybkość / stabilność / "pewność z błędów" ---
-    MIN_RACES = 30          # filtr minimalnej liczby wyścigów (żeby nie wygrywał 1 weekend)
-    ALPHA = 0.15            # kara za niestabilność (std)
-    GAMMA = 2.00            # kara za "bad races" (błędy / dropy / chaos)
+    MIN_RACES = 30  # filtr minimalnej liczby wyścigów (żeby nie wygrywał 1 weekend)
+    ALPHA = 0.15  # kara za niestabilność (std)
+    GAMMA = 2.00  # kara za "bad races" (błędy / dropy / chaos)
 
     df = load_df(target, feats)
 
@@ -66,16 +66,17 @@ def main() -> int:
     print(f"MAE zero baseline : {mae_zero:.4f}")
     print(f"MAE per-driver mean (cheat-ish): {mae_driver_mean:.4f}")
 
-
     # ============================================================
     # RACE DE-BIAS: odejmij średni błąd w danym wyścigu
     # (czyli: w GP liczy się kto był lepszy od reszty wg baseline)
     # ============================================================
-    tmp = pd.DataFrame({
-        "driverId": df["driverId"].astype(int).to_numpy(),
-        "raceId": df["raceId"].astype(int).to_numpy(),
-        "residual": residual,
-    })
+    tmp = pd.DataFrame(
+        {
+            "driverId": df["driverId"].astype(int).to_numpy(),
+            "raceId": df["raceId"].astype(int).to_numpy(),
+            "residual": residual,
+        }
+    )
 
     race_bias = tmp.groupby("raceId")["residual"].transform("mean").to_numpy()
     tmp["residual_adj"] = tmp["residual"].to_numpy() - race_bias
@@ -96,9 +97,9 @@ def main() -> int:
     # ===== agregacja po kierowcy =====
     skill = per_race.groupby("driverId", as_index=False).agg(
         mean_residual=("residual_race", "mean"),  # SZYBKOŚĆ (ujemny lepszy)
-        std_residual=("residual_race", "std"),    # STABILNOŚĆ (mniej = lepiej)
-        races=("residual_race", "count"),         # ile wyścigów
-        bad_rate=("bad_race", "mean"),            # PEWNOŚĆ z błędów (mniej = lepiej)
+        std_residual=("residual_race", "std"),  # STABILNOŚĆ (mniej = lepiej)
+        races=("residual_race", "count"),  # ile wyścigów
+        bad_rate=("bad_race", "mean"),  # PEWNOŚĆ z błędów (mniej = lepiej)
     )
 
     skill = skill[skill["races"] >= MIN_RACES].copy()
@@ -120,11 +121,21 @@ def main() -> int:
     # ===== nazwiska =====
     drivers = pd.read_csv(config.DATA_DIR + "/drivers.csv")
     drivers["driverId"] = drivers["driverId"].astype(int)
-    drivers["driver_name"] = drivers["forename"].astype(str) + " " + drivers["surname"].astype(str)
+    drivers["driver_name"] = (
+        drivers["forename"].astype(str) + " " + drivers["surname"].astype(str)
+    )
 
     skill = skill.merge(drivers[["driverId", "driver_name"]], on="driverId", how="left")
 
-    cols = ["driverId", "driver_name", "skill_score", "mean_residual", "std_residual", "bad_rate", "races"]
+    cols = [
+        "driverId",
+        "driver_name",
+        "skill_score",
+        "mean_residual",
+        "std_residual",
+        "bad_rate",
+        "races",
+    ]
     skill = skill[cols]
 
     # ===== zapis + print =====
@@ -132,21 +143,29 @@ def main() -> int:
 
     print("\nOK: predict done")
     print(f"Target: {target} | Variant: {variant} | MIN_RACES: {MIN_RACES}")
-    print(f"ALPHA (stability): {ALPHA} | GAMMA (bad_rate): {GAMMA} | BAD_THRESHOLD(p90): {BAD_THRESHOLD:.4f}")
+    print(
+        f"ALPHA (stability): {ALPHA} | GAMMA (bad_rate): {GAMMA} | BAD_THRESHOLD(p90): {BAD_THRESHOLD:.4f}"
+    )
     print("Saved:", config.SKILL_REPORT)
 
     print("\n=== SUPER KIEROWCY (TOP 10) ===")
-    print(skill.head(10).to_string(index=False) if len(skill) else "Brak kierowców spełniających MIN_RACES.")
+    print(
+        skill.head(10).to_string(index=False)
+        if len(skill)
+        else "Brak kierowców spełniających MIN_RACES."
+    )
 
     # preview (debug)
-    preview = pd.DataFrame({
-        "driverId": tmp["driverId"].to_numpy(),
-        "raceId": tmp["raceId"].to_numpy(),
-        "y": y,
-        "y_pred": y_pred,
-        "residual": residual,
-        "residual_adj": tmp["residual_adj"].to_numpy(),
-    }).head(200)
+    preview = pd.DataFrame(
+        {
+            "driverId": tmp["driverId"].to_numpy(),
+            "raceId": tmp["raceId"].to_numpy(),
+            "y": y,
+            "y_pred": y_pred,
+            "residual": residual,
+            "residual_adj": tmp["residual_adj"].to_numpy(),
+        }
+    ).head(200)
     preview.to_csv(config.PREDICTIONS_OUT, index=False)
     print("Saved preview:", config.PREDICTIONS_OUT)
 

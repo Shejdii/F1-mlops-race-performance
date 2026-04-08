@@ -20,6 +20,7 @@ def add_track_evolution(df: pd.DataFrame) -> pd.DataFrame:
     out["track_evolution_index"] = (out["lap"] / denom).clip(0.0, 1.0).fillna(0.0)
     return out
 
+
 def lap_based_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Dodaje:
@@ -48,9 +49,14 @@ def add_stint_features(df: pd.DataFrame) -> pd.DataFrame:
     _require(df, {"raceId", "driverId", "lap", "stint"}, "add_stint_features")
     out = df.copy().sort_values(by=["raceId", "driverId", "lap"])
     prev_stint = out.groupby(["raceId", "driverId"])["stint"].shift(1)
-    out["stint_change"] = (out["stint"] != prev_stint).astype(int).where(prev_stint.notna(), 0)
-    out["stint_lap_number"] = out.groupby(["raceId", "driverId", "stint"]).cumcount() + 1
+    out["stint_change"] = (
+        (out["stint"] != prev_stint).astype(int).where(prev_stint.notna(), 0)
+    )
+    out["stint_lap_number"] = (
+        out.groupby(["raceId", "driverId", "stint"]).cumcount() + 1
+    )
     return out
+
 
 def add_driver_form(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     """
@@ -69,10 +75,13 @@ def add_driver_form(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     out["driver_form_avg"] = s.groupby(out["driverId"]).transform(
         lambda x: x.rolling(window, min_periods=1).mean()
     )
-    out["driver_form_std"] = s.groupby(out["driverId"]).transform(
-        lambda x: x.rolling(window, min_periods=1).std()
-    ).fillna(0.0)
+    out["driver_form_std"] = (
+        s.groupby(out["driverId"])
+        .transform(lambda x: x.rolling(window, min_periods=1).std())
+        .fillna(0.0)
+    )
     return out
+
 
 def add_team_formation(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     """
@@ -87,11 +96,12 @@ def add_team_formation(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     out["team_form_avg"] = s.groupby(out["constructorId"]).transform(
         lambda x: x.rolling(window, min_periods=1).mean()
     )
-    out["team_form_std"] = s.groupby(out["constructorId"]).transform(
-        lambda x: x.rolling(window, min_periods=1).std()
-    ).fillna(0.0)
+    out["team_form_std"] = (
+        s.groupby(out["constructorId"])
+        .transform(lambda x: x.rolling(window, min_periods=1).std())
+        .fillna(0.0)
+    )
     return out
-
 
 
 def add_relative_pace(df: pd.DataFrame) -> pd.DataFrame:
@@ -113,4 +123,3 @@ def add_relative_pace(df: pd.DataFrame) -> pd.DataFrame:
 
     out["relative_pace"] = out["seconds"] - mean_others
     return out
-
