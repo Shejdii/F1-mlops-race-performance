@@ -6,3 +6,5 @@ xgboost
 pyarrow
 pytest
 black
+tensorflow
+
