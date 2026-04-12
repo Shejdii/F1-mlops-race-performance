@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import pandas as pd
 import numpy as np
 
@@ -63,23 +64,32 @@ def add_driver_form(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     Rolling forma kierowcy po 'seconds' z poprzednich okrążeń (shift(1)):
       - 'driver_form_avg'
       - 'driver_form_std'
-    Wymaga: 'raceId', 'driverId', 'lap', 'seconds'
-    """
-    _require(df, {"raceId", "driverId", "lap", "seconds"}, "add_driver_form")
-    out = df.copy().sort_values(by=["driverId", "raceId", "lap"])
-    # tylko przeszłość (bez bieżącego okrążenia)
-    # ważne: najpierw posortuj w kolejności okrążeń w ramach kierowcy
-    out = out.sort_values(["driverId", "lap"])
-    s = out.groupby("driverId")["seconds"].shift(1)
 
-    out["driver_form_avg"] = s.groupby(out["driverId"]).transform(
+    Liczone w poprawnym porządku czasowym:
+      driverId -> year -> round -> lap
+
+    Wymaga: 'driverId', 'year', 'round', 'lap', 'seconds'
+    """
+    _require(
+        df,
+        {"driverId", "year", "round", "lap", "seconds"},
+        "add_driver_form",
+    )
+
+    out = df.copy().sort_values(["driverId", "year", "round", "lap"])
+
+    prev_seconds = out.groupby("driverId")["seconds"].shift(1)
+
+    out["driver_form_avg"] = prev_seconds.groupby(out["driverId"]).transform(
         lambda x: x.rolling(window, min_periods=1).mean()
     )
+
     out["driver_form_std"] = (
-        s.groupby(out["driverId"])
+        prev_seconds.groupby(out["driverId"])
         .transform(lambda x: x.rolling(window, min_periods=1).std())
         .fillna(0.0)
     )
+
     return out
 
 
@@ -88,19 +98,32 @@ def add_team_formation(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     Rolling forma zespołu (constructorId) po 'seconds' z poprzednich okrążeń (shift(1)):
       - 'team_form_avg'
       - 'team_form_std'
-    Wymaga: 'raceId', 'constructorId', 'lap', 'seconds'
+
+    Liczone w poprawnym porządku czasowym:
+      constructorId -> year -> round -> lap
+
+    Wymaga: 'constructorId', 'year', 'round', 'lap', 'seconds'
     """
-    _require(df, {"raceId", "constructorId", "lap", "seconds"}, "add_team_formation")
-    out = df.copy().sort_values(by=["constructorId", "raceId", "lap"])
-    s = out.groupby("constructorId")["seconds"].apply(lambda x: x.shift(1))
-    out["team_form_avg"] = s.groupby(out["constructorId"]).transform(
+    _require(
+        df,
+        {"constructorId", "year", "round", "lap", "seconds"},
+        "add_team_formation",
+    )
+
+    out = df.copy().sort_values(["constructorId", "year", "round", "lap"])
+
+    prev_seconds = out.groupby("constructorId")["seconds"].shift(1)
+
+    out["team_form_avg"] = prev_seconds.groupby(out["constructorId"]).transform(
         lambda x: x.rolling(window, min_periods=1).mean()
     )
+
     out["team_form_std"] = (
-        s.groupby(out["constructorId"])
+        prev_seconds.groupby(out["constructorId"])
         .transform(lambda x: x.rolling(window, min_periods=1).std())
         .fillna(0.0)
     )
+
     return out
 
 
@@ -109,6 +132,7 @@ def add_relative_pace(df: pd.DataFrame) -> pd.DataFrame:
     Relatywne tempo względem średniej okrążenia w danym wyścigu i danym numerze okrążenia,
     w wariancie leave-one-out (bez własnego czasu):
       relative_pace = seconds - mean_others(raceId, lap)
+
     Wymaga: 'raceId', 'lap', 'driverId', 'seconds'
     """
     _require(df, {"raceId", "lap", "driverId", "seconds"}, "add_relative_pace")
@@ -117,7 +141,7 @@ def add_relative_pace(df: pd.DataFrame) -> pd.DataFrame:
     grp = out.groupby(["raceId", "lap"])["seconds"]
     sum_all = grp.transform("sum")
     cnt_all = grp.transform("count")
-    # średnia bez własnej próbki; gdy cnt==1 → mean_others = seconds (żeby uniknąć NaN)
+
     mean_others = (sum_all - out["seconds"]) / (cnt_all - 1).replace(0, np.nan)
     mean_others = mean_others.fillna(out["seconds"])
 
