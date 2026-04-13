@@ -23,7 +23,6 @@ def main() -> int:
     variant = config.MODEL_VARIANT
     feats = config.get_model_features()
 
-    # --- parametry rankingu ---
     min_races = 60
 
     elite_quantile = 0.10
@@ -31,7 +30,6 @@ def main() -> int:
     confidence_full_at = 100
     sample_penalty_weight = 1.25
 
-    # wagi score
     w_speed = 1.00
     w_consistency = 0.25
     w_error = 1.25
@@ -46,14 +44,10 @@ def main() -> int:
     model = tf.keras.models.load_model(config.TF_MODEL_FILE)
     y_pred = model.predict(x, verbose=0).reshape(-1)
 
-    # residual: ujemny = szybciej niż baseline
     residual = y - y_pred
 
-    # ============================================================
-    # SMOKE TEST
-    # ============================================================
     mae_model = float(np.mean(np.abs(residual)))
-    mae_zero = float(np.mean(np.abs(y)))  # baseline = 0 dla relative_pace
+    mae_zero = float(np.mean(np.abs(y)))
 
     df_tmp = pd.DataFrame(
         {
@@ -69,9 +63,6 @@ def main() -> int:
     print(f"MAE zero baseline : {mae_zero:.4f}")
     print(f"MAE per-driver mean (cheat-ish): {mae_driver_mean:.4f}")
 
-    # ============================================================
-    # RACE DE-BIAS
-    # ============================================================
     tmp = pd.DataFrame(
         {
             "driverId": df["driverId"].astype(int).to_numpy(),
@@ -83,23 +74,16 @@ def main() -> int:
     race_bias = tmp.groupby("raceId")["residual"].transform("mean").to_numpy()
     tmp["residual_adj"] = tmp["residual"].to_numpy() - race_bias
 
-    # każdy wyścig waży podobnie
     per_race = tmp.groupby(["driverId", "raceId"], as_index=False).agg(
         residual_race=("residual_adj", "mean")
     )
 
-    # ============================================================
-    # KLASY ZACHOWAŃ: elite / bad
-    # ============================================================
     elite_threshold = float(per_race["residual_race"].quantile(elite_quantile))
     bad_threshold = float(per_race["residual_race"].quantile(bad_quantile))
 
     per_race["elite_race"] = (per_race["residual_race"] <= elite_threshold).astype(int)
     per_race["bad_race"] = (per_race["residual_race"] >= bad_threshold).astype(int)
 
-    # ============================================================
-    # AGREGACJA PO KIEROWCY
-    # ============================================================
     skill = per_race.groupby("driverId", as_index=False).agg(
         mean_residual=("residual_race", "mean"),
         std_residual=("residual_race", "std"),
@@ -115,32 +99,15 @@ def main() -> int:
     skill["elite_rate"] = skill["elite_rate"].fillna(0.0)
     skill["peak_residual"] = skill["peak_residual"].fillna(skill["mean_residual"])
 
-    # ============================================================
-    # SKŁADNIKI SCORE
-    # ============================================================
-    # im bardziej ujemny mean_residual, tym lepiej
     skill["speed_component"] = -skill["mean_residual"]
-
-    # łagodniejsza kara za spread
     skill["consistency_component"] = np.log1p(skill["std_residual"])
-
-    # im mniejszy bad_rate, tym lepiej
     skill["error_component"] = skill["bad_rate"]
-
-    # im bardziej ujemny peak_residual, tym lepiej
     skill["peak_component"] = -skill["peak_residual"]
-
-    # im wyższy elite_rate, tym lepiej
     skill["elite_component"] = skill["elite_rate"]
 
-    # confidence: małe próbki dostają karę, ale nie przez dzielenie
     skill["confidence"] = (skill["races"] / confidence_full_at).clip(upper=1.0)
     skill["confidence"] = skill["confidence"].clip(lower=0.30)
 
-    # ============================================================
-    # FINAL SCORE
-    # niższy = lepszy
-    # ============================================================
     raw_score = (
         -w_speed * skill["speed_component"]
         + w_consistency * skill["consistency_component"]
@@ -154,9 +121,6 @@ def main() -> int:
 
     skill = skill.sort_values(["skill_score", "races"], ascending=[True, False])
 
-    # ============================================================
-    # NAZWISKA
-    # ============================================================
     drivers = pd.read_csv(config.DATA_DIR / "drivers.csv")
     drivers["driverId"] = drivers["driverId"].astype(int)
     drivers["driver_name"] = (
@@ -185,9 +149,6 @@ def main() -> int:
     ]
     skill = skill[cols]
 
-    # ============================================================
-    # ZAPIS
-    # ============================================================
     skill.to_csv(config.SKILL_REPORT, index=False)
 
     print("\nOK: predict done")

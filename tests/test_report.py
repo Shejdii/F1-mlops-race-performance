@@ -16,26 +16,34 @@ def test_driver_skill_report_contract() -> None:
 
     df = pd.read_csv(REPORT_FILE)
 
-    expected_cols = [
+    required_cols = [
         "driverId",
         "driver_name",
         "skill_score",
         "mean_residual",
         "std_residual",
         "bad_rate",
+        "elite_rate",
+        "peak_residual",
+        "speed_component",
+        "consistency_component",
+        "error_component",
+        "peak_component",
+        "elite_component",
+        "confidence",
+        "sample_penalty",
         "races",
     ]
 
-    assert list(df.columns) == expected_cols, (
-        f"Unexpected report columns.\n"
-        f"Expected: {expected_cols}\n"
-        f"Actual:   {list(df.columns)}"
+    missing = [col for col in required_cols if col not in df.columns]
+    assert not missing, (
+        f"Missing required report columns.\n"
+        f"Missing: {missing}\n"
+        f"Actual:  {list(df.columns)}"
     )
 
-    print(f"\n[REPORT] rows={len(df)}")
-
+    print(f"\n[REPORT] rows={len(df)}, cols={len(df.columns)}")
     assert not df.empty, "driver_skill.csv is empty"
-
 
 
 def test_driver_skill_report_values_make_sense() -> None:
@@ -50,6 +58,12 @@ def test_driver_skill_report_values_make_sense() -> None:
     assert ((df["bad_rate"] >= 0) & (df["bad_rate"] <= 1)).all(), (
         "bad_rate must be between 0 and 1"
     )
+    assert ((df["elite_rate"] >= 0) & (df["elite_rate"] <= 1)).all(), (
+        "elite_rate must be between 0 and 1"
+    )
+    assert ((df["confidence"] >= 0) & (df["confidence"] <= 1)).all(), (
+        "confidence must be between 0 and 1"
+    )
 
 
 def test_driver_skill_report_sorted_by_skill_score() -> None:
@@ -60,6 +74,7 @@ def test_driver_skill_report_sorted_by_skill_score() -> None:
 
     scores = df["skill_score"].to_list()
     assert scores == sorted(scores), "driver_skill.csv is not sorted ascending by skill_score"
+
 
 def test_driver_skill_top_preview() -> None:
     if not REPORT_FILE.exists():
@@ -72,4 +87,4 @@ def test_driver_skill_top_preview() -> None:
     print("\n[TOP DRIVERS]")
     print(top.to_string(index=False))
 
-    assert len(top) > 0, "No drivers found in report"
+    assert len(top) > 0

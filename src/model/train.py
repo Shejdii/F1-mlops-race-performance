@@ -7,14 +7,15 @@ import mlflow.keras
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
 import config
 
 
 def load_df(target: str, feats: list[str]) -> pd.DataFrame:
     df = pd.read_parquet(config.ART_FEATURES)
-    df = df[feats + [target]].copy()
+    needed = ["raceId"] + feats + [target]
+    df = df[needed].copy()
 
     for col in feats + [target]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -45,13 +46,27 @@ def main() -> int:
 
     x = df[feats].to_numpy(np.float32)
     y = df[target].to_numpy(np.float32)
+    groups = df["raceId"].to_numpy()
 
-    x_train, x_val, y_train, y_val = train_test_split(
-        x,
-        y,
+    splitter = GroupShuffleSplit(
+        n_splits=1,
         test_size=config.TEST_SIZE,
         random_state=config.RANDOM_SEED,
     )
+    train_idx, val_idx = next(splitter.split(x, y, groups=groups))
+
+    x_train = x[train_idx]
+    x_val = x[val_idx]
+    y_train = y[train_idx]
+    y_val = y[val_idx]
+
+    train_races = set(groups[train_idx].tolist())
+    val_races = set(groups[val_idx].tolist())
+    overlap = train_races & val_races
+    if overlap:
+        raise ValueError(
+            f"Group split leakage: overlapping raceId values: {sorted(list(overlap))[:10]}"
+        )
 
     model = build_model(input_dim=x_train.shape[1])
 
@@ -80,13 +95,15 @@ def main() -> int:
 
     mlflow.set_experiment("f1-goat-skill-model")
 
-    with mlflow.start_run(run_name=f"tf_{target}_{variant}"):
+    with mlflow.start_run(run_name=f"tf_{target}_{variant}_grouped_by_race") as run:
         mlflow.log_param("target", target)
         mlflow.log_param("variant", variant)
         mlflow.log_param("features", ",".join(feats))
         mlflow.log_param("feature_count", len(feats))
         mlflow.log_param("test_size", config.TEST_SIZE)
         mlflow.log_param("random_seed", config.RANDOM_SEED)
+        mlflow.log_param("split_strategy", "GroupShuffleSplit")
+        mlflow.log_param("split_group", "raceId")
 
         mlflow.log_param("tf_lr", config.TF_LR)
         mlflow.log_param("tf_epochs", config.TF_EPOCHS)
@@ -95,6 +112,8 @@ def main() -> int:
 
         mlflow.log_metric("train_rows", int(len(x_train)))
         mlflow.log_metric("val_rows", int(len(x_val)))
+        mlflow.log_metric("train_races", int(len(train_races)))
+        mlflow.log_metric("val_races", int(len(val_races)))
         mlflow.log_metric("num_params", int(model.count_params()))
 
         history = model.fit(
@@ -123,14 +142,16 @@ def main() -> int:
 
         model.save(config.TF_MODEL_FILE)
         mlflow.keras.log_model(model, name="model")
-
         mlflow.log_artifact(str(config.TF_MODEL_FILE))
 
         print("\nOK: TF trained")
         print(f"Target: {target} | Variant: {variant}")
+        print("Split: GroupShuffleSplit by raceId")
+        print(f"Train races: {len(train_races)} | Val races: {len(val_races)}")
         print(f"Val MAE: {val_mae:.4f}")
         print(f"Saved: {config.TF_MODEL_FILE}")
-        print(f"MLflow run logged in experiment: f1-goat-skill-model")
+        print("MLflow run logged in experiment: f1-goat-skill-model")
+        print(f"MLflow run_id: {run.info.run_id}")
 
     return 0
 
