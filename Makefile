@@ -13,6 +13,9 @@ train:
 predict:
 	$(PYTHON) -m src.cli predict
 
+season:
+	python -m src.cli season-analysis
+
 all:
 	$(PYTHON) -m src.cli all
 

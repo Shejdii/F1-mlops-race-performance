@@ -8,4 +8,5 @@ pytest
 black
 tensorflow
 MLflow
+joblib 
 

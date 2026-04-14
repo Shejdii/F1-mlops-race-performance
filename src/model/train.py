@@ -2,14 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import joblib
 import mlflow
 import mlflow.keras
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 import config
+
+EXPERIMENT_NAME = "f1-goat-skill-model"
 
 
 def load_df(target: str, feats: list[str]) -> pd.DataFrame:
@@ -24,8 +32,15 @@ def load_df(target: str, feats: list[str]) -> pd.DataFrame:
     return df
 
 
-def build_model(input_dim: int) -> tf.keras.Model:
-    model = tf.keras.Sequential(
+def evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+    return {
+        "mae": float(mean_absolute_error(y_true, y_pred)),
+        "mse": float(mean_squared_error(y_true, y_pred)),
+    }
+
+
+def build_tf_model(input_dim: int) -> tf.keras.Model:
+    return tf.keras.Sequential(
         [
             tf.keras.layers.Input(shape=(input_dim,)),
             tf.keras.layers.Normalization(),
@@ -34,7 +49,90 @@ def build_model(input_dim: int) -> tf.keras.Model:
             tf.keras.layers.Dense(1),
         ]
     )
-    return model
+
+
+def train_ridge(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+) -> tuple[Pipeline, dict[str, float]]:
+    model = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("ridge", Ridge(alpha=1.0)),
+        ]
+    )
+    model.fit(x_train, y_train)
+    y_val_pred = model.predict(x_val)
+    metrics = evaluate_regression(y_val, y_val_pred)
+    return model, metrics
+
+
+def train_hgbr(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+) -> tuple[HistGradientBoostingRegressor, dict[str, float]]:
+    model = HistGradientBoostingRegressor(
+        learning_rate=0.05,
+        max_depth=6,
+        max_iter=300,
+        min_samples_leaf=20,
+        random_state=config.RANDOM_SEED,
+    )
+    model.fit(x_train, y_train)
+    y_val_pred = model.predict(x_val)
+    metrics = evaluate_regression(y_val, y_val_pred)
+    return model, metrics
+
+
+def train_tf(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+) -> tuple[tf.keras.Model, dict[str, float], dict[str, float]]:
+    model = build_tf_model(input_dim=x_train.shape[1])
+
+    norm_layer = model.layers[0]
+    if not isinstance(norm_layer, tf.keras.layers.Normalization):
+        raise TypeError("Expected first layer to be tf.keras.layers.Normalization")
+
+    norm_layer.adapt(x_train)
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=config.TF_LR)
+    model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
+
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss",
+            patience=config.TF_EARLYSTOP_PATIENCE,
+            restore_best_weights=True,
+        )
+    ]
+
+    history = model.fit(
+        x_train,
+        y_train,
+        validation_data=(x_val, y_val),
+        epochs=config.TF_EPOCHS,
+        batch_size=config.TF_BATCH_SIZE,
+        callbacks=callbacks,
+        verbose=2,
+    )
+
+    y_val_pred = model.predict(x_val, verbose=0).reshape(-1)
+    metrics = evaluate_regression(y_val, y_val_pred)
+
+    history_metrics = {
+        "best_epoch": int(np.argmin(history.history["val_loss"])) + 1,
+        "best_val_loss": float(np.min(history.history["val_loss"])),
+        "best_val_mae_hist": float(np.min(history.history["val_mae"])),
+    }
+
+    return model, metrics, history_metrics
 
 
 def main() -> int:
@@ -68,34 +166,16 @@ def main() -> int:
             f"Group split leakage: overlapping raceId values: {sorted(list(overlap))[:10]}"
         )
 
-    model = build_model(input_dim=x_train.shape[1])
-
-    norm_layer = model.layers[0]
-    if not isinstance(norm_layer, tf.keras.layers.Normalization):
-        raise TypeError("Expected first layer to be tf.keras.layers.Normalization")
-
-    norm_layer.adapt(x_train)
-
-    optimizer = tf.keras.optimizers.Adam(learning_rate=config.TF_LR)
-    model.compile(
-        optimizer=optimizer,
-        loss="mse",
-        metrics=["mae"],
-    )
-
-    callbacks = [
-        tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss",
-            patience=config.TF_EARLYSTOP_PATIENCE,
-            restore_best_weights=True,
-        )
-    ]
-
     Path(config.ART_MODELS).mkdir(parents=True, exist_ok=True)
+    Path(config.ART_REPORTS).mkdir(parents=True, exist_ok=True)
 
-    mlflow.set_experiment("f1-goat-skill-model")
+    benchmark_path = Path(config.ART_REPORTS) / "train_benchmark_summary.csv"
 
-    with mlflow.start_run(run_name=f"tf_{target}_{variant}_grouped_by_race") as run:
+    mlflow.set_experiment(EXPERIMENT_NAME)
+
+    with mlflow.start_run(
+        run_name=f"benchmark_{target}_{variant}_grouped_by_race"
+    ) as run:
         mlflow.log_param("target", target)
         mlflow.log_param("variant", variant)
         mlflow.log_param("features", ",".join(feats))
@@ -114,43 +194,73 @@ def main() -> int:
         mlflow.log_metric("val_rows", int(len(x_val)))
         mlflow.log_metric("train_races", int(len(train_races)))
         mlflow.log_metric("val_races", int(len(val_races)))
-        mlflow.log_metric("num_params", int(model.count_params()))
 
-        history = model.fit(
-            x_train,
-            y_train,
-            validation_data=(x_val, y_val),
-            epochs=config.TF_EPOCHS,
-            batch_size=config.TF_BATCH_SIZE,
-            callbacks=callbacks,
-            verbose=2,
+        ridge_model, ridge_metrics = train_ridge(x_train, y_train, x_val, y_val)
+        mlflow.log_metric("ridge_val_mae", ridge_metrics["mae"])
+        mlflow.log_metric("ridge_val_mse", ridge_metrics["mse"])
+
+        hgbr_model, hgbr_metrics = train_hgbr(x_train, y_train, x_val, y_val)
+        mlflow.log_metric("hgbr_val_mae", hgbr_metrics["mae"])
+        mlflow.log_metric("hgbr_val_mse", hgbr_metrics["mse"])
+
+        tf_model, tf_metrics, tf_history_metrics = train_tf(
+            x_train, y_train, x_val, y_val
         )
+        mlflow.log_metric("tf_val_mae", tf_metrics["mae"])
+        mlflow.log_metric("tf_val_mse", tf_metrics["mse"])
+        mlflow.log_metric("tf_best_epoch", tf_history_metrics["best_epoch"])
+        mlflow.log_metric("tf_best_val_loss", tf_history_metrics["best_val_loss"])
+        mlflow.log_metric(
+            "tf_best_val_mae_hist", tf_history_metrics["best_val_mae_hist"]
+        )
+        mlflow.log_metric("tf_num_params", int(tf_model.count_params()))
 
-        y_val_pred = model.predict(x_val, verbose=0).reshape(-1)
-        val_mae = float(np.mean(np.abs(y_val - y_val_pred)))
-        val_mse = float(np.mean((y_val - y_val_pred) ** 2))
+        joblib.dump(ridge_model, config.RIDGE_MODEL_FILE)
+        mlflow.log_artifact(str(config.RIDGE_MODEL_FILE))
 
-        best_epoch = int(np.argmin(history.history["val_loss"])) + 1
-        best_val_loss = float(np.min(history.history["val_loss"]))
-        best_val_mae_hist = float(np.min(history.history["val_mae"]))
-
-        mlflow.log_metric("val_mae", val_mae)
-        mlflow.log_metric("val_mse", val_mse)
-        mlflow.log_metric("best_epoch", best_epoch)
-        mlflow.log_metric("best_val_loss", best_val_loss)
-        mlflow.log_metric("best_val_mae_hist", best_val_mae_hist)
-
-        model.save(config.TF_MODEL_FILE)
-        mlflow.keras.log_model(model, name="model")
+        tf_model.save(config.TF_MODEL_FILE)
+        mlflow.keras.log_model(tf_model, name="tf_model")
         mlflow.log_artifact(str(config.TF_MODEL_FILE))
 
-        print("\nOK: TF trained")
+        summary = pd.DataFrame(
+            [
+                {
+                    "model_name": "ridge",
+                    "val_mae": ridge_metrics["mae"],
+                    "val_mse": ridge_metrics["mse"],
+                },
+                {
+                    "model_name": "hist_gradient_boosting",
+                    "val_mae": hgbr_metrics["mae"],
+                    "val_mse": hgbr_metrics["mse"],
+                },
+                {
+                    "model_name": "tensorflow",
+                    "val_mae": tf_metrics["mae"],
+                    "val_mse": tf_metrics["mse"],
+                },
+            ]
+        ).sort_values("val_mae", ascending=True)
+
+        summary.to_csv(benchmark_path, index=False)
+        mlflow.log_artifact(str(benchmark_path))
+
+        winner = summary.iloc[0]["model_name"]
+        winner_mae = float(summary.iloc[0]["val_mae"])
+
+        mlflow.log_param("benchmark_winner", winner)
+        mlflow.log_metric("benchmark_best_val_mae", winner_mae)
+
+        print("\n=== MODEL BENCHMARK (GroupShuffleSplit by raceId) ===")
+        print(summary.to_string(index=False))
+
+        print("\nOK: training benchmark done")
         print(f"Target: {target} | Variant: {variant}")
-        print("Split: GroupShuffleSplit by raceId")
         print(f"Train races: {len(train_races)} | Val races: {len(val_races)}")
-        print(f"Val MAE: {val_mae:.4f}")
-        print(f"Saved: {config.TF_MODEL_FILE}")
-        print("MLflow run logged in experiment: f1-goat-skill-model")
+        print(f"Saved Ridge model: {config.RIDGE_MODEL_FILE}")
+        print(f"Saved TF model: {config.TF_MODEL_FILE}")
+        print(f"Saved benchmark summary: {benchmark_path}")
+        print(f"MLflow run logged in experiment: {EXPERIMENT_NAME}")
         print(f"MLflow run_id: {run.info.run_id}")
 
     return 0

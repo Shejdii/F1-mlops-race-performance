@@ -5,7 +5,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPORT_FILE = PROJECT_ROOT / "artifacts" / "reports" / "driver_skill.csv"
 
@@ -20,18 +19,21 @@ def test_driver_skill_report_contract() -> None:
         "driverId",
         "driver_name",
         "skill_score",
+        "adjusted_talent_score",
+        "talent_score",
+        "uncertainty_penalty",
         "mean_residual",
         "std_residual",
         "bad_rate",
         "elite_rate",
         "peak_residual",
-        "speed_component",
-        "consistency_component",
-        "error_component",
-        "peak_component",
-        "elite_component",
+        "speed_score",
+        "peak_score",
+        "elite_score",
+        "consistency_score",
+        "error_score",
         "confidence",
-        "sample_penalty",
+        "confidence_label",
         "races",
     ]
 
@@ -55,15 +57,21 @@ def test_driver_skill_report_values_make_sense() -> None:
     assert df["driverId"].notna().all(), "driverId contains nulls"
     assert df["driver_name"].notna().all(), "driver_name contains nulls"
     assert (df["races"] > 0).all(), "Found non-positive race counts"
-    assert ((df["bad_rate"] >= 0) & (df["bad_rate"] <= 1)).all(), (
-        "bad_rate must be between 0 and 1"
-    )
-    assert ((df["elite_rate"] >= 0) & (df["elite_rate"] <= 1)).all(), (
-        "elite_rate must be between 0 and 1"
-    )
-    assert ((df["confidence"] >= 0) & (df["confidence"] <= 1)).all(), (
-        "confidence must be between 0 and 1"
-    )
+
+    assert (
+        (df["bad_rate"] >= 0) & (df["bad_rate"] <= 1)
+    ).all(), "bad_rate must be between 0 and 1"
+    assert (
+        (df["elite_rate"] >= 0) & (df["elite_rate"] <= 1)
+    ).all(), "elite_rate must be between 0 and 1"
+    assert (
+        (df["confidence"] >= 0) & (df["confidence"] <= 1)
+    ).all(), "confidence must be between 0 and 1"
+
+    allowed_labels = {"LOW", "MEDIUM", "HIGH"}
+    assert (
+        df["confidence_label"].isin(allowed_labels).all()
+    ), "confidence_label contains unexpected values"
 
 
 def test_driver_skill_report_sorted_by_skill_score() -> None:
@@ -73,7 +81,9 @@ def test_driver_skill_report_sorted_by_skill_score() -> None:
     df = pd.read_csv(REPORT_FILE)
 
     scores = df["skill_score"].to_list()
-    assert scores == sorted(scores), "driver_skill.csv is not sorted ascending by skill_score"
+    assert scores == sorted(
+        scores
+    ), "driver_skill.csv is not sorted ascending by skill_score"
 
 
 def test_driver_skill_top_preview() -> None:

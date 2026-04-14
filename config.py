@@ -17,10 +17,13 @@ ART_FEATURES = PROJECT_ROOT / "artifacts" / "features" / "features.parquet"
 ART_MODELS = PROJECT_ROOT / "artifacts" / "models"
 ART_REPORTS = PROJECT_ROOT / "artifacts" / "reports"
 
-# Konkretne pliki wyjściowe
 TF_MODEL_FILE = PROJECT_ROOT / "artifacts" / "models" / "tf_model.keras"
+RIDGE_MODEL_FILE = PROJECT_ROOT / "artifacts" / "models" / "ridge.joblib"
+
 SKILL_REPORT = PROJECT_ROOT / "artifacts" / "reports" / "driver_skill.csv"
 PREDICTIONS_OUT = PROJECT_ROOT / "artifacts" / "reports" / "predictions_preview.csv"
+
+MODEL_BACKEND = "ridge"  # "ridge" | "tensorflow"
 
 # Outputy / logi
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
