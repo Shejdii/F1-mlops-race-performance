@@ -1,9 +1,0 @@
-2025-12-09 18:07:06,890 | INFO | [0/4] Czyszczę artifacts/…
-2025-12-09 18:07:06,893 | INFO | [1/4] Wczytywanie CSV z D:\Kurs\MLOps\VS\Wlasne\F1\F1ml\DataBase
-2025-12-09 18:07:07,226 | INFO | [2/4] ingest.lap_times_raw(laps, races)
-2025-12-09 18:07:07,954 | INFO | [3/4] clean.clean_lap_data (compute_features=True)
-2025-12-09 18:07:07,955 | INFO | Start clean_lap_data
-2025-12-09 18:07:08,666 | INFO | Wyliczam feature'y…
-2025-12-09 18:07:09,871 | INFO | clean_lap_data: gotowe, shape=(589081, 20)
-2025-12-09 18:07:09,872 | INFO | [4/4] Zapis artefaktu
-2025-12-09 18:07:10,363 | INFO | Zapisano D:\Kurs\MLOps\VS\Wlasne\F1\F1ml\artifacts\features.parquet (rows=589081, cols=20)

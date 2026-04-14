@@ -1,9 +1,22 @@
+# Python
 .venv/
-venv/
 __pycache__/
 *.pyc
-.pytest_cache/
+
+# Data / artifacts
+artifacts/models/
+artifacts/features/
+artifacts/reports/
+artifacts/predictions/
 outputs/
 logs/
-helper_file_to_delete_later/
-env/
+
+# MLflow
+mlruns/
+mlartifacts/
+mlflow.db
+
+# OS / editor
+.vscode/
+.idea/
+.DS_Store
