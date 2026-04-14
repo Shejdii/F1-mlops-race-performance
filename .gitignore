@@ -26,3 +26,12 @@ data/raw/
 
 # Experimental work
 src/experimental/
+
+# Local datasets
+data/raw/
+
+# Ignore all parquet datasets
+*.parquet
+
+# Allow CI sample dataset
+!tests/fixtures/features_sample.parquet

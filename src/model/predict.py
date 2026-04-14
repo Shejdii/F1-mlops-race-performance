@@ -252,11 +252,11 @@ def main() -> int:
     )
     print("Saved:", config.SKILL_REPORT)
 
-    print("\n=== SUPER KIEROWCY (TOP 10 TALENT) ===")
+    print("\n=== TOP 10 DRIVERS BY TALENT ===")
     print(
         skill.head(10).to_string(index=False)
         if len(skill)
-        else "Brak kierowców spełniających MIN_RACES."
+        else "no drivers meeting MIN_RACES."
     )
 
     print("Saved preview:", config.PREDICTIONS_OUT)
