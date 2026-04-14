@@ -20,3 +20,9 @@ mlflow.db
 .vscode/
 .idea/
 .DS_Store
+
+# Local datasets
+data/raw/
+
+# Experimental work
+src/experimental/
