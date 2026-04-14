@@ -1,5 +1,7 @@
 PYTHON := python
 
+.PHONY: install features train predict all test format lint check clean
+
 install:
 	$(PYTHON) -m pip install --upgrade pip
 	$(PYTHON) -m pip install -r requirements.txt
@@ -13,9 +15,6 @@ train:
 predict:
 	$(PYTHON) -m src.cli predict
 
-season:
-	python -m src.cli season-analysis
-
 all:
 	$(PYTHON) -m src.cli all
 
@@ -24,4 +23,15 @@ test:
 
 format:
 	$(PYTHON) -m black .
-	
+
+lint:
+	$(PYTHON) -m pylint src
+
+check:
+	$(MAKE) format
+	$(MAKE) lint
+	$(MAKE) test
+
+clean:
+	rm -rf artifacts/*
+	rm -rf __pycache__

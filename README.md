@@ -1,146 +1,75 @@
-# Formula 1 GOAT Driver Modeling (ML)
+# F1 MLOps Race Performance
 
-End-to-end Machine Learning project aimed at estimating **driver skill independent of machinery**, with the long-term goal of identifying a **GOAT (Greatest Of All Time) driver** using data-driven modeling.
-
-This repository contains **Version 1 (baseline)** — a fully working pipeline proving the concept.
+End-to-end MLOps pipeline for modeling Formula 1 race performance and estimating driver skill.
 
 ---
 
-## Core Idea (GOAT Hypothesis)
+## Core idea
 
-Raw race results do **not** measure driver skill directly.  
-Performance is influenced by:
-- car performance
-- track conditions
-- race chaos
-- reliability
+Raw race results do **not** reflect true driver skill.
 
-**Hypothesis:**  
-If we normalize lap-time data to race-relative pace and model residual performance over many races, we can approximate **true driver skill**.
+This project models performance relative to race conditions and uses **residual-based analysis** to approximate driver ability — aiming toward a data-driven GOAT evaluation.
 
 ---
 
-## Project Goal (V1)
+## What this shows
 
-Build a **reproducible ML baseline** that:
-- processes raw Formula 1 lap-time data
-- derives race-relative pace features
-- trains a regression model
-- evaluates it against strong baselines
-- produces interpretable driver-level outputs
-
-This version focuses on **engineering correctness and stability**, not peak model performance.
+* Full ML pipeline: **features → train → predict**
+* **Leakage-safe validation** (GroupShuffleSplit by raceId)
+* **Model benchmarking** (Ridge, HistGB, TensorFlow)
+* **MLflow experiment tracking**
+* **CI pipeline (GitHub Actions)** running full workflow on sample data
 
 ---
 
-## Data
+## Why this is interesting
 
-Source: Kaggle — Formula 1 World Championship (1950–2020)
+* Avoids common ML mistake: **data leakage between laps from the same race**
+* Uses **residuals instead of raw performance** to estimate skill
+* Separates:
 
-Main tables used:
-- lap_times
-- races
-- drivers
-- results
-
----
-
-## Pipeline Overview
-
-1. **Ingest**
-   - Load raw CSV data
-   - Parse lap times into seconds
-   - Merge race metadata
-
-2. **Clean**
-   - Remove invalid laps
-   - Normalize lap indexing
-   - Filter unreliable samples
-
-3. **Feature Engineering**
-   - Race-relative pace
-   - Track evolution index
-   - Stability metrics across races
-
-4. **Baseline Modeling**
-   - Regression model predicting relative pace
-   - Designed to capture consistency, not outliers
-
-5. **Evaluation & Smoke Tests**
-   - Zero baseline
-   - Per-driver mean baseline (cheat-ish)
-   - Model MAE comparison
-   - Stability checks (MIN_RACES threshold)
-
-6. **Artifacts**
-   - Driver skill report (CSV)
-   - Model predictions
-   - Evaluation summaries
+  * heavy pipeline (real data)
+  * lightweight CI validation (sample dataset)
 
 ---
 
-## Baselines & Validation
+## Example output
 
-Baselines implemented:
-- Zero predictor
-- Per-driver mean predictor
-- ML regression baseline
+Top drivers by model-based skill:
 
-Validation includes:
-- Mean Absolute Error comparison
-- Driver-level stability constraints
-- Sanity checks on data leakage
-
-The ML model **outperforms the zero baseline** and remains stable across drivers with sufficient race history.
+```text id="z4n1ld"
+Rubens Barrichello
+Jacques Villeneuve
+Jenson Button
+Felipe Massa
+Fernando Alonso
+```
 
 ---
 
-## Tech Stack
+## Pipeline
 
-- Python
-- Pandas / NumPy
-- TensorFlow (Keras)
-- CLI-style pipeline
-- Reproducible artifacts
-- Logging & configuration separation
+```text id="o7p9vy"
+features → train → predict
+```
 
 ---
 
-## Current Status
+## Run locally
 
-**Version 1 — Baseline Complete**
-
-✔ End-to-end pipeline  
-✔ Stable baseline model  
-✔ Validated against simple heuristics  
-✔ Ready for iteration  
-
-This version confirms that the **GOAT driver modeling approach is viable**.
+```bash
+make install
+make all
+```
 
 ---
 
-## Future Work (V2+)
+## Tech
 
-- Better car-performance disentanglement
-- Season-aware normalization
-- Model versioning & experiment tracking
-- Advanced models (tree-based, ensembles)
-- Cross-era driver comparison
+Python • pandas • scikit-learn • TensorFlow • MLflow • pytest • GitHub Actions
 
 ---
 
-## Why This Project
+## Key takeaway
 
-This project is intentionally **engineering-first**:
-- correctness > complexity
-- baselines > fancy models
-- reproducibility > leaderboard chasing
-
-It represents how a real ML system is built — iteratively.
-
----
-
-### Versioning Note
-
-This repository reflects **V1**.  
-Future iterations will extend, not replace, this baseline.
+This project focuses on **building a reproducible ML system**, not just training a model.
