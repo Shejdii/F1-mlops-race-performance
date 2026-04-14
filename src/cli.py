@@ -5,8 +5,6 @@ from pathlib import Path
 
 import config
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
 
 def ensure_dirs() -> None:
     Path(config.ARTIFACTS_DIR).mkdir(parents=True, exist_ok=True)
@@ -25,7 +23,7 @@ def features() -> int:
     laps, races, drivers, constructors, results, pit_stops = io_utils.load_data(
         data_dir
     )
-    base = ingest.lap_times_raw(laps, races)
+    base = ingest.lap_times_raw(laps, races, results=results)
     df = clean.clean_lap_data(base, races, compute_features=True)
 
     Path(config.ART_FEATURES).parent.mkdir(parents=True, exist_ok=True)

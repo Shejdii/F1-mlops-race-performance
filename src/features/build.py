@@ -1,34 +1,63 @@
-# src/features/build.py
 from __future__ import annotations
 
-import pandas as pd
 import logging
+import pandas as pd
 
 from .definitions import (
     C_CONSTRUCTOR_ID,
-    F_STINT,
-    F_TRACK_EVO,
-    F_LAP_TIME_PREV,
-    F_LAP_TIME_DIFF,
     F_DRIVER_FORM_AVG,
     F_DRIVER_FORM_STD,
+    F_LAP_TIME_DIFF,
+    F_LAP_TIME_PREV,
+    F_POSITION_PREV,
+    F_RELATIVE_PACE,
+    F_STINT,
     F_TEAM_FORM_AVG,
     F_TEAM_FORM_STD,
-    F_RELATIVE_PACE,
-    F_POSITION_PREV,  # <--- dodaj w definitions.py jeśli brak
+    F_TRACK_EVO,
 )
-
-
 from .base import (
+    add_driver_form,
+    add_relative_pace,
+    add_stint_features,
+    add_team_formation,
     add_track_evolution,
     lap_based_features,
-    add_stint_features,
-    add_driver_form,
-    add_team_formation,
-    add_relative_pace,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_position_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ujednolica kolumny pozycji po merge'ach.
+    Obsługuje przypadki:
+      - position
+      - position_x / position_y
+
+    Priorytet:
+      1) position
+      2) position_x
+      3) position_y
+    """
+    out = df.copy()
+
+    if "position" in out.columns:
+        out["position"] = pd.to_numeric(out["position"], errors="coerce")
+        return out
+
+    candidates = [c for c in ["position_x", "position_y"] if c in out.columns]
+    if not candidates:
+        return out
+
+    out["position"] = pd.NA
+    for col in candidates:
+        out["position"] = out["position"].fillna(out[col])
+
+    out["position"] = pd.to_numeric(out["position"], errors="coerce")
+    out.drop(columns=candidates, inplace=True, errors="ignore")
+
+    return out
 
 
 def build_features(
@@ -48,6 +77,9 @@ def build_features(
     """
 
     out = df.copy()
+
+    # --- 0) Ujednolicenie kolumn po merge'ach ---
+    out = _normalize_position_columns(out)
 
     # --- 1) Track evolution ---
     if F_TRACK_EVO not in out.columns:
@@ -80,7 +112,7 @@ def build_features(
     if F_RELATIVE_PACE not in out.columns:
         out = add_relative_pace(out)
 
-    # 7) Anty-leak: bieżąca pozycja zawiera skutki okrążenia → używamy tylko laga
+    # --- 7) Anty-leak: bieżąca pozycja -> tylko lag ---
     if "position" in out.columns:
         out = out.sort_values(["raceId", "driverId", "lap"])
         out[F_POSITION_PREV] = out.groupby(["raceId", "driverId"])["position"].shift(1)

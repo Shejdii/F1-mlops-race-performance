@@ -18,6 +18,7 @@ from sklearn.preprocessing import StandardScaler
 import config
 
 EXPERIMENT_NAME = "f1-goat-skill-model"
+RIDGE_ALPHAS = [0.01, 0.1, 1.0, 3.0, 10.0, 30.0]
 
 
 def load_df(target: str, feats: list[str]) -> pd.DataFrame:
@@ -51,22 +52,50 @@ def build_tf_model(input_dim: int) -> tf.keras.Model:
     )
 
 
-def train_ridge(
+def train_best_ridge(
     x_train: np.ndarray,
     y_train: np.ndarray,
     x_val: np.ndarray,
     y_val: np.ndarray,
-) -> tuple[Pipeline, dict[str, float]]:
-    model = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("ridge", Ridge(alpha=1.0)),
-        ]
+) -> tuple[Pipeline, dict[str, float], float, pd.DataFrame]:
+    rows: list[dict[str, float | str]] = []
+    best_model: Pipeline | None = None
+    best_metrics: dict[str, float] | None = None
+    best_alpha: float | None = None
+
+    for alpha in RIDGE_ALPHAS:
+        model = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("ridge", Ridge(alpha=alpha)),
+            ]
+        )
+        model.fit(x_train, y_train)
+        y_val_pred = model.predict(x_val)
+        metrics = evaluate_regression(y_val, y_val_pred)
+
+        rows.append(
+            {
+                "model_name": f"ridge_alpha_{alpha}",
+                "alpha": alpha,
+                "val_mae": metrics["mae"],
+                "val_mse": metrics["mse"],
+            }
+        )
+
+        if best_metrics is None or metrics["mae"] < best_metrics["mae"]:
+            best_model = model
+            best_metrics = metrics
+            best_alpha = alpha
+
+    assert best_model is not None
+    assert best_metrics is not None
+    assert best_alpha is not None
+
+    summary = (
+        pd.DataFrame(rows).sort_values("val_mae", ascending=True).reset_index(drop=True)
     )
-    model.fit(x_train, y_train)
-    y_val_pred = model.predict(x_val)
-    metrics = evaluate_regression(y_val, y_val_pred)
-    return model, metrics
+    return best_model, best_metrics, best_alpha, summary
 
 
 def train_hgbr(
@@ -170,6 +199,7 @@ def main() -> int:
     Path(config.ART_REPORTS).mkdir(parents=True, exist_ok=True)
 
     benchmark_path = Path(config.ART_REPORTS) / "train_benchmark_summary.csv"
+    ridge_sweep_path = Path(config.ART_REPORTS) / "ridge_alpha_sweep.csv"
 
     mlflow.set_experiment(EXPERIMENT_NAME)
 
@@ -185,6 +215,7 @@ def main() -> int:
         mlflow.log_param("split_strategy", "GroupShuffleSplit")
         mlflow.log_param("split_group", "raceId")
 
+        mlflow.log_param("ridge_alphas", ",".join(str(a) for a in RIDGE_ALPHAS))
         mlflow.log_param("tf_lr", config.TF_LR)
         mlflow.log_param("tf_epochs", config.TF_EPOCHS)
         mlflow.log_param("tf_batch_size", config.TF_BATCH_SIZE)
@@ -195,9 +226,20 @@ def main() -> int:
         mlflow.log_metric("train_races", int(len(train_races)))
         mlflow.log_metric("val_races", int(len(val_races)))
 
-        ridge_model, ridge_metrics = train_ridge(x_train, y_train, x_val, y_val)
+        ridge_model, ridge_metrics, ridge_best_alpha, ridge_sweep = train_best_ridge(
+            x_train, y_train, x_val, y_val
+        )
         mlflow.log_metric("ridge_val_mae", ridge_metrics["mae"])
         mlflow.log_metric("ridge_val_mse", ridge_metrics["mse"])
+        mlflow.log_param("ridge_best_alpha", ridge_best_alpha)
+
+        for _, row in ridge_sweep.iterrows():
+            alpha_str = str(row["alpha"]).replace(".", "_")
+            mlflow.log_metric(f"ridge_alpha_{alpha_str}_val_mae", float(row["val_mae"]))
+            mlflow.log_metric(f"ridge_alpha_{alpha_str}_val_mse", float(row["val_mse"]))
+
+        ridge_sweep.to_csv(ridge_sweep_path, index=False)
+        mlflow.log_artifact(str(ridge_sweep_path))
 
         hgbr_model, hgbr_metrics = train_hgbr(x_train, y_train, x_val, y_val)
         mlflow.log_metric("hgbr_val_mae", hgbr_metrics["mae"])
@@ -251,14 +293,19 @@ def main() -> int:
         mlflow.log_param("benchmark_winner", winner)
         mlflow.log_metric("benchmark_best_val_mae", winner_mae)
 
+        print("\n=== RIDGE ALPHA SWEEP ===")
+        print(ridge_sweep.to_string(index=False))
+
         print("\n=== MODEL BENCHMARK (GroupShuffleSplit by raceId) ===")
         print(summary.to_string(index=False))
 
         print("\nOK: training benchmark done")
         print(f"Target: {target} | Variant: {variant}")
         print(f"Train races: {len(train_races)} | Val races: {len(val_races)}")
+        print(f"Best Ridge alpha: {ridge_best_alpha}")
         print(f"Saved Ridge model: {config.RIDGE_MODEL_FILE}")
         print(f"Saved TF model: {config.TF_MODEL_FILE}")
+        print(f"Saved Ridge sweep: {ridge_sweep_path}")
         print(f"Saved benchmark summary: {benchmark_path}")
         print(f"MLflow run logged in experiment: {EXPERIMENT_NAME}")
         print(f"MLflow run_id: {run.info.run_id}")

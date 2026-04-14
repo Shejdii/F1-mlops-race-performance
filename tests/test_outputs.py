@@ -7,7 +7,6 @@ import pytest
 
 import config
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FEATURES_FILE = PROJECT_ROOT / "artifacts" / "features" / "features.parquet"
 TF_MODEL_FILE = PROJECT_ROOT / "artifacts" / "models" / "tf_model.keras"

@@ -61,6 +61,8 @@ MODEL_FEATURES_BASE = [
     "track_evolution_index",
     "driver_form_avg",
     "driver_form_std",
+    "team_form_avg",
+    "team_form_std",
     "position_prev",
     "lap",
     "max_lap",
@@ -87,6 +89,8 @@ EXPECTED_FEATURE_COLUMNS = [
     "lap_time_diff",
     "driver_form_avg",
     "driver_form_std",
+    "team_form_avg",
+    "team_form_std",
     "relative_pace",
     "position_prev",
 ]

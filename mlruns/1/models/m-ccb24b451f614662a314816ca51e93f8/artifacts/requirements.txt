@@ -1,0 +1,4 @@
+mlflow==3.11.1
+keras==3.12.1
+numpy==2.2.6
+tensorflow==2.21.0

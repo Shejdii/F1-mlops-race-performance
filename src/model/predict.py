@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
 import config
 
 MIN_RACES = 30
@@ -12,13 +15,13 @@ PRIOR_STRENGTH = 120
 ELITE_QUANTILE = 0.10
 BAD_QUANTILE = 0.90
 
-W_SPEED = 0.36
-W_PEAK = 0.28
-W_ELITE = 0.16
-W_CONSISTENCY = 0.12
-W_ERROR = 0.08
+W_SPEED = 0.42
+W_PEAK = 0.18
+W_ELITE = 0.10
+W_CONSISTENCY = 0.18
+W_ERROR = 0.12
 
-UNCERTAINTY_PENALTY_SCALE = 12.0
+UNCERTAINTY_PENALTY_SCALE = 14.0
 
 
 def load_df(target: str, feats: list[str]) -> pd.DataFrame:
@@ -160,7 +163,6 @@ def build_driver_ranking(
         skill["talent_score"] - skill["uncertainty_penalty"]
     )
 
-    # lower is better for sorting compatibility
     skill["skill_score"] = -skill["adjusted_talent_score"]
 
     drivers = pd.read_csv(Path(config.DATA_DIR) / "drivers.csv")
