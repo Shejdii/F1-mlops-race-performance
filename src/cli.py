@@ -3,7 +3,16 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import pandas as pd
+
 import config
+
+
+MODEL_FEATURE_DEFAULTS = {
+    "driver_form_avg": 0.0,
+    "team_form_avg": 0.0,
+    "position_prev": 10.0,
+}
 
 
 def ensure_dirs() -> None:
@@ -13,6 +22,27 @@ def ensure_dirs() -> None:
     Path(config.OUTPUTS_DIR).mkdir(parents=True, exist_ok=True)
 
 
+def finalize_feature_artifact(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare final features parquet as a model-ready artifact."""
+    out = df.copy()
+
+    for col, value in MODEL_FEATURE_DEFAULTS.items():
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce").fillna(value)
+
+    target = config.MODEL_TARGET
+    feats = config.get_model_features()
+
+    out = out.dropna(subset=[target])
+
+    missing_na = out[feats].isna().sum()
+    missing_na = missing_na[missing_na > 0]
+    if len(missing_na):
+        raise ValueError(f"NaNs remain in model features:\n{missing_na}")
+
+    return out
+
+
 def features() -> int:
     from src import clean, ingest, io_utils
 
@@ -20,11 +50,10 @@ def features() -> int:
 
     data_dir = Path(config.DATA_DIR)
 
-    laps, races, drivers, constructors, results, pit_stops = io_utils.load_data(
-        data_dir
-    )
+    laps, races, drivers, constructors, results, pit_stops = io_utils.load_data(data_dir)
     base = ingest.lap_times_raw(laps, races, results=results)
     df = clean.clean_lap_data(base, races, compute_features=True)
+    df = finalize_feature_artifact(df)
 
     Path(config.ART_FEATURES).parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(config.ART_FEATURES, index=False)
