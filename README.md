@@ -34,7 +34,7 @@ relative_pace = driver_lap_time - mean_lap_time_of_others
                 (same race, same lap)
 
 Driver skill is then estimated by aggregating **model residuals across races (mean residual per driver)**.
-
+```
 ---
 
 ## 📊 Model Performance
