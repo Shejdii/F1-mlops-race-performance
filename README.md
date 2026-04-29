@@ -8,12 +8,26 @@ End-to-end MLOps pipeline for estimating **driver skill independent of machinery
 
 This system:
 
-* builds **lap-level and race-relative features** from raw F1 data  
-* trains and benchmarks multiple models (Ridge, HistGB, TensorFlow)  
-* evaluates performance using **leakage-aware validation (GroupSplit by raceId)**  
-* estimates driver skill via **residual modeling**  
-* tracks experiments with MLflow  
-* runs full pipeline reproducibly via CLI + Makefile + CI  
+* builds **lap-level and race-relative features** from raw F1 data
+* trains and benchmarks multiple models (Ridge, HistGB, TensorFlow)
+* evaluates performance using **leakage-aware validation (GroupShuffleSplit by raceId)**
+* estimates driver skill via **residual modeling**
+* tracks experiments with MLflow
+* runs full pipeline reproducibly via CLI + Makefile + CI
+
+---
+
+## 🧠 What makes this project different
+
+This project explicitly prioritizes **correct evaluation over metric performance**.
+
+Instead of optimizing only for error:
+
+* it enforces leakage-safe validation
+* it compares against leakage-prone baselines
+* it highlights how misleading naive evaluation can be
+
+This reflects real-world ML challenges, where validation strategy is often more important than the model itself.
 
 ---
 
@@ -115,7 +129,7 @@ over raw metric optimization.
 * car performance is only indirectly modeled
 * no explicit team/car disentanglement
 * race strategies and external events are not fully captured
-* model performance depends heavily on feature design and normalization assumptions
+* model performance depends heavily on feature design and assumptions
 
 This model estimates **relative skill under noisy conditions**, not absolute ability.
 
@@ -135,7 +149,6 @@ Artifacts produced:
 * driver skill rankings (`driver_skill.csv`)
 
 ---
-
 
 ## 🧪 Validation Strategy
 
@@ -172,43 +185,32 @@ make test
 ```
 
 ---
+
 ## 🧪 CI (GitHub Actions)
 
 CI pipeline runs:
 
-* tests on sample dataset  
+* tests on sample dataset
 * pipeline execution (train + predict)
 
 This ensures:
 
-* reproducibility  
-* fast validation  
-* pipeline integrity  
+* reproducibility
+* fast validation
+* pipeline integrity
 
 ---
 
 ## 💡 What this demonstrates
 
-* end-to-end ML pipeline design  
-* leakage-aware validation (GroupSplit)  
-* realistic model benchmarking (with baselines)  
-* experiment tracking (MLflow)  
-* reproducible workflows (CLI + Makefile + CI)  
-* handling of noisy, confounded real-world data  
+* end-to-end ML pipeline design
+* leakage-aware validation
+* model benchmarking
+* experiment tracking (MLflow)
+* reproducible workflows (CLI + Makefile + CI)
+* handling of noisy, confounded real-world data
 
 ---
-
-## 🧠 What makes this project different
-
-This project explicitly prioritizes **correct evaluation over metric performance**.
-
-Instead of optimizing for the lowest error:
-
-- it enforces leakage-safe validation  
-- it compares against leakage-prone baselines  
-- it highlights how misleading naive evaluation can be  
-
-This reflects real-world ML challenges, where validation strategy is often more important than the model itself.
 
 ## 📌 Key takeaway
 
@@ -217,3 +219,5 @@ This project is not about predicting race results.
 It is about:
 
 > designing a system that extracts signal from a noisy, biased environment
+
+and doing it in a **reproducible, MLOps-oriented way**.
