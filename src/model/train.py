@@ -187,6 +187,9 @@ def main() -> int:
     y_train = y[train_idx]
     y_val = y[val_idx]
 
+    zero_val_pred = np.zeros_like(y_val)
+    zero_metrics = evaluate_regression(y_val, zero_val_pred)
+
     train_races = set(groups[train_idx].tolist())
     val_races = set(groups[val_idx].tolist())
     overlap = train_races & val_races
@@ -225,6 +228,9 @@ def main() -> int:
         mlflow.log_metric("val_rows", int(len(x_val)))
         mlflow.log_metric("train_races", int(len(train_races)))
         mlflow.log_metric("val_races", int(len(val_races)))
+
+        mlflow.log_metric("zero_baseline_val_mae", zero_metrics["mae"])
+        mlflow.log_metric("zero_baseline_val_mse", zero_metrics["mse"])
 
         ridge_model, ridge_metrics, ridge_best_alpha, ridge_sweep = train_best_ridge(
             x_train, y_train, x_val, y_val
@@ -266,6 +272,11 @@ def main() -> int:
 
         summary = pd.DataFrame(
             [
+                {
+                    "model_name": "zero_baseline",
+                    "val_mae": zero_metrics["mae"],
+                    "val_mse": zero_metrics["mse"],
+                },
                 {
                     "model_name": "ridge",
                     "val_mae": ridge_metrics["mae"],
